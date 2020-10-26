@@ -11338,9 +11338,10 @@ namespace Tqdev\PhpCrudApi {
         // 'driver' => 'mysql',
         // 'address' => 'localhost',
         // 'port' => '3306',
-        'username' => 'php-crud-api',
-        'password' => 'php-crud-api',
-        'database' => 'php-crud-api',
+        'username' => 'semousr',
+        'password' => 'sEmo0-1.rele',
+        'database' => 'cainz_cp_debug',
+        'address' => '192.168.0.164', 
         // 'debug' => false
     ]);
     $request = RequestFactory::fromGlobals();
