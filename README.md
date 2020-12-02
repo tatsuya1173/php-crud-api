@@ -1,6 +1,6 @@
 # PHP-CRUD-API
 
-Single file PHP 7 script that adds a REST API to a MySQL 5.6 InnoDB database. PostgreSQL 9.1 and MS SQL Server 2012 are fully supported. 
+Single file PHP 7 script that adds a REST API to a MySQL/MariaDB, PostgreSQL, SQL Server or SQLite database. 
 
 NB: This is the [TreeQL](https://treeql.org) reference implementation in PHP.
 
@@ -27,11 +27,11 @@ There are also proof-of-concept ports of this script that only support basic RES
 
 ## Requirements
 
-  - PHP 7.0 or higher with PDO drivers for MySQL, PgSQL, SqlSrv or SQLite enabled
-  - MySQL 5.6 / MariaDB 10.0 or higher for spatial features in MySQL
-  - PostGIS 2.0 or higher for spatial features in PostgreSQL 9.1 or higher
-  - SQL Server 2012 or higher (2017 for Linux support)
-  - SQLite 3.16 or higher (spatial features NOT supported)
+  - PHP 7.0 or higher with PDO drivers enabled for one of these database systems:
+    - MySQL 5.6 / MariaDB 10.0 or higher for spatial features in MySQL
+    - PostgreSQL 9.1 or higher with PostGIS 2.0 or higher for spatial features
+    - SQL Server 2012 or higher (2017 for Linux support)
+    - SQLite 3.16 or higher (spatial features NOT supported)
 
 ## Installation
 
@@ -54,6 +54,9 @@ Alternatively you can integrate this project into the web framework of your choi
 - [Automatic REST API for SlimPHP 4](https://tqdev.com/2019-automatic-api-slimphp-4)
 
 In these integrations [Composer](https://getcomposer.org/) is used to load this project as a dependency.
+
+For people that don't use composer, the file "`api.include.php`" is provided. This file contains everything 
+from "`api.php`" except the configuration from "`src/index.php`" and can be used by PHP's "include".
 
 ## Configuration
 
@@ -642,6 +645,8 @@ You can tune the middleware behavior using middleware specific configuration par
 - "dbAuth.usernameColumn": The users table column that holds usernames ("username")
 - "dbAuth.passwordColumn": The users table column that holds passwords ("password")
 - "dbAuth.returnedColumns": The columns returned on successful login, empty means 'all' ("")
+- "dbAuth.registerUser": JSON user data (or "1") in case you want the /register endpoint enabled ("")
+- "dbAuth.passwordLength": Minimum length that the password must have ("12")
 - "dbAuth.sessionName": The name of the PHP session that is started ("")
 - "jwtAuth.mode": Set to "optional" if you want to allow anonymous access ("required")
 - "jwtAuth.header": Name of the header containing the JWT token ("X-Authorization")
@@ -705,20 +710,22 @@ Below you find more information on each of the authentication types.
 
 #### Database authentication
 
-The database authentication middleware defines two new routes:
+The database authentication middleware defines three new routes:
 
-    method path       - parameters               - description
-    ----------------------------------------------------------------------------------------
-    POST   /login     - username + password      - logs a user in by username and password
-    POST   /logout    -                          - logs out the currently logged in user
+    method path       - parameters                      - description
+    ---------------------------------------------------------------------------------------------------
+    GET    /me        -                                 - returns the user that is currently logged in
+    POST   /register  - username, password              - adds a user with given username and password
+    POST   /login     - username, password              - logs a user in by username and password
+    POST   /password  - username, password, newPassword - updates the password of the logged in user
+    POST   /logout    -                                 - logs out the currently logged in user
 
 A user can be logged in by sending it's username and password to the login endpoint (in JSON format).
 The authenticated user (with all it's properties) will be stored in the `$_SESSION['user']` variable.
 The user can be logged out by sending a POST request with an empty body to the logout endpoint.
-The passwords are stored as hashes in the password column in the users table. To generate the hash value
-for the password 'pass2' you can run on the command line:
-
-    php -r 'echo password_hash("pass2", PASSWORD_DEFAULT)."\n";'
+The passwords are stored as hashes in the password column in the users table. You can register a new user
+using the register endpoint, but this functionality must be turned on using the "dbAuth.regsiterUser"
+configuration parameter.
 
 It is IMPORTANT to restrict access to the users table using the 'authorization' middleware, otherwise all 
 users can freely add, modify or delete any account! The minimal configuration is shown below:
@@ -897,7 +904,7 @@ should not use the "authorization" middleware, but you do need to use the "recon
     },
 
 This will make the API connect to the database specifying "mevdschee" as the username and "secret123" as the password.
-The OpenAPI specification is less specific on allowed and disallowed operations, when you are using database permissions,
+The OpenAPI specification is less specific on allowed and disallowed operations when you are using database permissions,
 as the permissions are not read in the reflection step.
 
 NB: You may want to retrieve the username and password from the session (the "$_SESSION" variable).
@@ -915,7 +922,7 @@ The above example will strip all HTML tags from strings in the input.
 
 ### Type sanitation
 
-If you enable the 'sanitation' middleware, then you (automtically) also enable type sanitation. When this is enabled you may:
+If you enable the 'sanitation' middleware, then you (automatically) also enable type sanitation. When this is enabled you may:
 
 - send leading and trailing whitespace in a non-character field (it will be ignored).
 - send a float to an integer or bigint field (it will be rounded).
@@ -962,7 +969,7 @@ You can parse this output to make form fields show up with a red border and thei
 
 ### Type validations
 
-If you enable the 'validation' middleware, then you (automtically) also enable type validation. 
+If you enable the 'validation' middleware, then you (automatically) also enable type validation. 
 This includes the following error messages:
 
 | error message       | reason                      | applies to types                            |
@@ -1065,9 +1072,14 @@ You may use the "xml" middleware to translate input and output from JSON to XML.
 
     GET /records/posts/1
 
-Outputs:
+Outputs (when "pretty printed"):
 
-    {"id":1,"user_id":1,"category_id":1,"content":"blog started"}
+    {
+        "id": 1,
+        "user_id": 1,
+        "category_id": 1,
+        "content": "blog started"
+    }
 
 While (note the "format" query parameter):
 
@@ -1075,7 +1087,12 @@ While (note the "format" query parameter):
 
 Outputs:
 
-    <root><id>1</id><user_id>1</user_id><category_id>1</category_id><content>blog started</content></root>
+    <root>
+        <id>1</id>
+        <user_id>1</user_id>
+        <category_id>1</category_id>
+        <content>blog started</content>
+    </root>
 
 This functionality is disabled by default and must be enabled using the "middlewares" configuration setting.
 
@@ -1193,7 +1210,7 @@ I am testing mainly on Ubuntu and I have the following test setups:
   - (Docker) Ubuntu 18.04 with PHP 7.2, MySQL 5.7, PostgreSQL 10.4 (PostGIS 2.4) and SQLite 3.22
   - (Docker) Debian 10 with PHP 7.3, MariaDB 10.3, PostgreSQL 11.4 (PostGIS 2.5) and SQLite 3.27
   - (Docker) Ubuntu 20.04 with PHP 7.4, MySQL 8.0, PostgreSQL 12.2 (PostGIS 3.0) and SQLite 3.31
-  - (Docker) CentOS 8 with PHP 7.4, MariaDB 10.4, PostgreSQL 12.2 (PostGIS 3.0) and SQLite 3.26
+  - (Docker) CentOS 8 with PHP 7.4, MariaDB 10.5, PostgreSQL 12.5 (PostGIS 3.0) and SQLite 3.26
 
 This covers not all environments (yet), so please notify me of failing tests and report your environment. 
 I will try to cover most relevant setups in the "docker" folder of the project.
@@ -1249,15 +1266,15 @@ To run the docker tests run "build_all.sh" and "run_all.sh" from the docker dire
     ================================================
     CentOS 8 (PHP 7.4)
     ================================================
-    [1/4] Starting MariaDB 10.4 ..... done
-    [2/4] Starting PostgreSQL 12.2 .. done
+    [1/4] Starting MariaDB 10.5 ..... done
+    [2/4] Starting PostgreSQL 12.5 .. done
     [3/4] Starting SQLServer 2017 ... skipped
     [4/4] Cloning PHP-CRUD-API v2 ... skipped
     ------------------------------------------------
-    mysql: 105 tests ran in 2986 ms, 1 skipped, 0 failed
-    pgsql: 105 tests ran in 976 ms, 1 skipped, 0 failed
+    mysql: 110 tests ran in 1911 ms, 1 skipped, 0 failed
+    pgsql: 110 tests ran in 1112 ms, 1 skipped, 0 failed
     sqlsrv: skipped, driver not loaded
-    sqlite: 105 tests ran in 933 ms, 12 skipped, 0 failed
+    sqlite: 110 tests ran in 1178 ms, 12 skipped, 0 failed
     ================================================
     Debian 10 (PHP 7.3)
     ================================================
@@ -1266,10 +1283,10 @@ To run the docker tests run "build_all.sh" and "run_all.sh" from the docker dire
     [3/4] Starting SQLServer 2017 ... skipped
     [4/4] Cloning PHP-CRUD-API v2 ... skipped
     ------------------------------------------------
-    mysql: 105 tests ran in 3214 ms, 1 skipped, 0 failed
-    pgsql: 105 tests ran in 904 ms, 1 skipped, 0 failed
+    mysql: 110 tests ran in 3459 ms, 1 skipped, 0 failed
+    pgsql: 110 tests ran in 1134 ms, 1 skipped, 0 failed
     sqlsrv: skipped, driver not loaded
-    sqlite: 105 tests ran in 1145 ms, 12 skipped, 0 failed
+    sqlite: 110 tests ran in 1275 ms, 12 skipped, 0 failed
     ================================================
     Debian 9 (PHP 7.0)
     ================================================
@@ -1278,10 +1295,10 @@ To run the docker tests run "build_all.sh" and "run_all.sh" from the docker dire
     [3/4] Starting SQLServer 2017 ... skipped
     [4/4] Cloning PHP-CRUD-API v2 ... skipped
     ------------------------------------------------
-    mysql: 105 tests ran in 2940 ms, 1 skipped, 0 failed
-    pgsql: 105 tests ran in 992 ms, 1 skipped, 0 failed
+    mysql: 110 tests ran in 3181 ms, 1 skipped, 0 failed
+    pgsql: 110 tests ran in 1201 ms, 1 skipped, 0 failed
     sqlsrv: skipped, driver not loaded
-    sqlite: 105 tests ran in 1063 ms, 12 skipped, 0 failed
+    sqlite: 110 tests ran in 1414 ms, 12 skipped, 0 failed
     ================================================
     Ubuntu 16.04 (PHP 7.0)
     ================================================
@@ -1290,9 +1307,9 @@ To run the docker tests run "build_all.sh" and "run_all.sh" from the docker dire
     [3/4] Starting SQLServer 2017 ... done
     [4/4] Cloning PHP-CRUD-API v2 ... skipped
     ------------------------------------------------
-    mysql: 105 tests ran in 3015 ms, 1 skipped, 0 failed
-    pgsql: 105 tests ran in 992 ms, 1 skipped, 0 failed
-    sqlsrv: 105 tests ran in 10515 ms, 1 skipped, 0 failed
+    mysql: 110 tests ran in 3168 ms, 1 skipped, 0 failed
+    pgsql: 110 tests ran in 1197 ms, 1 skipped, 0 failed
+    sqlsrv: 110 tests ran in 10151 ms, 1 skipped, 0 failed
     sqlite: skipped, driver not loaded
     ================================================
     Ubuntu 18.04 (PHP 7.2)
@@ -1302,10 +1319,10 @@ To run the docker tests run "build_all.sh" and "run_all.sh" from the docker dire
     [3/4] Starting SQLServer 2017 ... skipped
     [4/4] Cloning PHP-CRUD-API v2 ... skipped
     ------------------------------------------------
-    mysql: 105 tests ran in 3390 ms, 1 skipped, 0 failed
-    pgsql: 105 tests ran in 936 ms, 1 skipped, 0 failed
+    mysql: 110 tests ran in 3709 ms, 1 skipped, 0 failed
+    pgsql: 110 tests ran in 1334 ms, 1 skipped, 0 failed
     sqlsrv: skipped, driver not loaded
-    sqlite: 105 tests ran in 1063 ms, 12 skipped, 0 failed
+    sqlite: 110 tests ran in 1477 ms, 12 skipped, 0 failed
     ================================================
     Ubuntu 20.04 (PHP 7.4)
     ================================================
@@ -1314,10 +1331,10 @@ To run the docker tests run "build_all.sh" and "run_all.sh" from the docker dire
     [3/4] Starting SQLServer 2017 ... skipped
     [4/4] Cloning PHP-CRUD-API v2 ... skipped
     ------------------------------------------------
-    mysql: 105 tests ran in 6434 ms, 1 skipped, 0 failed
-    pgsql: 105 tests ran in 979 ms, 1 skipped, 0 failed
+    mysql: 110 tests ran in 5102 ms, 1 skipped, 0 failed
+    pgsql: 110 tests ran in 1170 ms, 1 skipped, 0 failed
     sqlsrv: skipped, driver not loaded
-    sqlite: 105 tests ran in 1373 ms, 12 skipped, 0 failed
+    sqlite: 110 tests ran in 1380 ms, 12 skipped, 0 failed
 
 The above test run (including starting up the databases) takes less than 5 minutes on my slow laptop.
 

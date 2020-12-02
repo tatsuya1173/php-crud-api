@@ -11385,27 +11385,3 @@ namespace Tqdev\PhpCrudApi {
         }
     }
 }
-
-// file: src/index.php
-namespace Tqdev\PhpCrudApi {
-
-    use Tqdev\PhpCrudApi\Api;
-    use Tqdev\PhpCrudApi\Config;
-    use Tqdev\PhpCrudApi\RequestFactory;
-    use Tqdev\PhpCrudApi\ResponseUtils;
-
-    $config = new Config([
-        // 'driver' => 'mysql',
-        // 'address' => 'localhost',
-        // 'port' => '3306',
-        'username' => 'semousr',
-        'password' => 'sEmo0-1.rele',
-        'database' => 'cainz_cp_debug',
-        'address' => '192.168.0.164', 
-        // 'debug' => false
-    ]);
-    $request = RequestFactory::fromGlobals();
-    $api = new Api($config);
-    $response = $api->handle($request);
-    ResponseUtils::output($response);
-}
